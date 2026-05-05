@@ -19,9 +19,24 @@ ORCHESTRATOR_URL = "http://localhost:3000"
 TRACES_DIR = Path(__file__).parent.parent.parent / "data" / "traces"
 
 
+class FailureModeFlags(BaseModel):
+    retrieval_noise: bool = False
+    context_truncation: bool = False
+    agent_loop: bool = False
+
+    def to_list(self) -> list[str]:
+        return [k for k, v in self.model_dump().items() if v]
+
+
 class RunRequest(BaseModel):
     task: str
-    failure_modes: list[str] = []
+    # Accept either a list of strings or a dict of booleans from the UI
+    failure_modes: list[str] | FailureModeFlags = []
+
+    def resolved_failure_modes(self) -> list[str]:
+        if isinstance(self.failure_modes, FailureModeFlags):
+            return self.failure_modes.to_list()
+        return self.failure_modes
 
 
 @app.post("/run")
@@ -30,7 +45,7 @@ async def run_task(request: RunRequest):
         try:
             response = await client.post(
                 f"{ORCHESTRATOR_URL}/run",
-                json={"task": request.task, "failureModes": request.failure_modes},
+                json={"task": request.task, "failureModes": request.resolved_failure_modes()},
             )
             response.raise_for_status()
             return response.json()

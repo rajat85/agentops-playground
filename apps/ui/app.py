@@ -102,7 +102,11 @@ with PrefabApp(
                                 f"{BRIDGE_URL}/run",
                                 body={
                                     "task": "{{ task_input }}",
-                                    "failure_modes": "{{ active_modes }}",
+                                    "failure_modes": {
+                                        "retrieval_noise": "{{ retrieval_noise }}",
+                                        "context_truncation": "{{ context_truncation }}",
+                                        "agent_loop": "{{ agent_loop }}",
+                                    },
                                 },
                                 onSuccess=[
                                     SetState("result", RESULT),
@@ -141,15 +145,23 @@ with PrefabApp(
                         with ForEach("result.steps") as step:
                             with Card():
                                 with CardContent():
-                                    with Row():
-                                        Badge(f"{step.role}")
-                                        Text(f"{step.content}")
+                                    with Column(gap=2):
+                                        with Row():
+                                            Badge(f"Step {step.step}")
+                                            Text(f"{step.latency_ms} ms", italic=True)
+                                        Text("LLM output:")
+                                        Text(f"{step.llm_output}")
+                                        with If(f"{step.tool_called}"):
+                                            with Row():
+                                                Badge(f"Tool: {step.tool_called}", variant="secondary")
+                                            Text("Tool result:")
+                                            Text(f"{step.tool_result}")
 
                         Separator()
 
                         # Final answer
                         Heading("Final Answer", level=3)
-                        Text("{{ result.answer }}")
+                        Text("{{ result.final_answer }}")
 
         with Else():
             Text(
