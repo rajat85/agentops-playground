@@ -1,0 +1,7 @@
+A distributed system consists of multiple components communicating over a network.
+Latency is the time taken for a request to travel from client to server and back.
+Throughput measures how many requests a system can handle per second.
+Horizontal scaling adds more machines; vertical scaling adds more resources to one machine.
+Message queues decouple producers and consumers, improving resilience.
+Circuit breakers prevent cascading failures by stopping calls to failing services.
+Observability requires three pillars: metrics, logs, and traces.

@@ -1,0 +1,7 @@
+RAG pipelines have three stages: indexing, retrieval, and generation.
+Indexing converts raw documents into searchable embeddings stored in a vector store.
+Retrieval uses the user query to find the top-k most semantically similar chunks.
+Generation passes retrieved chunks as context in the LLM prompt.
+Chunk size affects retrieval precision: too small loses context, too large adds noise.
+Reranking models score retrieved candidates and reorder them before generation.
+Hybrid search combines dense vector search with sparse keyword (BM25) search.

@@ -1,0 +1,7 @@
+Retrieval-Augmented Generation (RAG) combines a retrieval system with a generative model.
+The retrieval step fetches relevant documents from a corpus based on a query.
+The generation step uses those documents as context to produce a grounded answer.
+RAG reduces hallucination by anchoring the model to retrieved evidence.
+Vector databases like FAISS or Chroma store document embeddings for fast similarity search.
+Embedding models convert text into dense numerical vectors.
+Context window limits how much retrieved text can be passed to the LLM.
