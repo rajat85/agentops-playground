@@ -8,7 +8,7 @@ export interface TraceStep {
   llm_input: string;
   llm_output: string;
   tool_called: string | null;
-  tool_result: unknown | null;
+  tool_result: unknown;
   latency_ms: number;
 }
 

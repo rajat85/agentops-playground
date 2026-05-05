@@ -1,10 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import type { RunResult } from './types.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TRACES_DIR = path.resolve(__dirname, '../../../data/traces');
+const TRACES_DIR = process.env['TRACES_DIR'] ?? path.resolve(process.cwd(), 'data/traces');
 
 export function generateRunId(): string {
   const ts = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
@@ -20,6 +18,9 @@ export function logTrace(result: RunResult): void {
 
 export function readTrace(runId: string): RunResult | null {
   const filePath = path.join(TRACES_DIR, `${runId}.json`);
-  if (!fs.existsSync(filePath)) return null;
-  return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as RunResult;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as RunResult;
+  } catch {
+    return null;
+  }
 }

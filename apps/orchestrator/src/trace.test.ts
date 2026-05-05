@@ -3,6 +3,8 @@ import type { RunResult } from './types.js';
 import fs from 'fs';
 import path from 'path';
 
+const TRACES_DIR = path.resolve(process.cwd(), 'data/traces');
+
 const sampleResult: RunResult = {
   run_id: 'run_test_0001',
   task: 'test task',
@@ -11,6 +13,11 @@ const sampleResult: RunResult = {
   final_answer: 'done',
   completed_at: new Date().toISOString(),
 };
+
+afterAll(() => {
+  const tracePath = path.join(TRACES_DIR, 'run_test_0001.json');
+  if (fs.existsSync(tracePath)) fs.unlinkSync(tracePath);
+});
 
 test('generateRunId returns correct format', () => {
   const id = generateRunId();
@@ -22,9 +29,6 @@ test('logTrace writes a file, readTrace reads it back', () => {
   const read = readTrace('run_test_0001');
   expect(read).not.toBeNull();
   expect(read!.final_answer).toBe('done');
-  // cleanup
-  const tracePath = path.resolve(process.cwd(), 'data/traces/run_test_0001.json');
-  if (fs.existsSync(tracePath)) fs.unlinkSync(tracePath);
 });
 
 test('readTrace returns null for missing run_id', () => {
