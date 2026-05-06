@@ -13,7 +13,7 @@ interface TraceViewerProps {
 
 export function TraceViewer({ steps, finalAnswer, running, currentStatus, error }: Readonly<TraceViewerProps>) {
   return (
-    <div className="flex flex-col gap-4">
+    <div data-testid="trace-viewer" className="flex flex-col gap-4">
       {running && (
         <div className="sticky top-0 z-40 bg-background pb-2 pt-1">
           <StatusPill status={currentStatus || 'Running…'} />
@@ -54,7 +54,7 @@ export function TraceViewer({ steps, finalAnswer, running, currentStatus, error 
             <CircleCheck size={16} className="text-green-500" />
             <h3 className="text-base font-semibold">Final Answer</h3>
           </div>
-          <div className="px-4 pb-4 text-sm leading-relaxed whitespace-pre-wrap">
+          <div data-testid="final-answer" className="px-4 pb-4 text-sm leading-relaxed whitespace-pre-wrap">
             {finalAnswer}
           </div>
         </div>

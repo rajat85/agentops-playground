@@ -1,0 +1,12 @@
+{
+  "name": "agentops-demo",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "demo": "playwright test --headed --workers=1",
+    "demo:scenario": "playwright test --headed --workers=1 --grep"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0"
+  }
+}

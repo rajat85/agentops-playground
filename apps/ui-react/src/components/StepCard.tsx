@@ -15,7 +15,7 @@ interface McpTool {
 function McpInitCard({ step }: Readonly<{ step: TraceStep }>) {
   const tools = step.tool_result ? (JSON.parse(step.tool_result) as McpTool[]) : [];
   return (
-    <div className="rounded-lg border border-l-4 border-l-emerald-500 bg-card">
+    <div data-testid="mcp-init-step" className="rounded-lg border border-l-4 border-l-emerald-500 bg-card">
       <div className="p-4 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <Plug size={14} className="text-emerald-500" />
@@ -40,7 +40,7 @@ function McpInitCard({ step }: Readonly<{ step: TraceStep }>) {
 function McpCallCard({ step, running }: Readonly<StepCardProps>) {
   const done = !!step.tool_result;
   return (
-    <div className="rounded-lg border border-l-4 border-l-amber-400 bg-card">
+    <div data-testid="mcp-call-step" className="rounded-lg border border-l-4 border-l-amber-400 bg-card">
       <div className="p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
@@ -86,7 +86,7 @@ export function StepCard({ step, running }: Readonly<StepCardProps>) {
   if (step.kind === 'mcp_call') return <McpCallCard step={step} running={running} />;
 
   return (
-    <div className="rounded-lg border border-l-4 border-l-blue-500/40 bg-card">
+    <div data-testid="agent-step" className="rounded-lg border border-l-4 border-l-blue-500/40 bg-card">
       <div className="p-4 flex flex-col gap-4">
 
         <div className="flex items-center justify-between">
