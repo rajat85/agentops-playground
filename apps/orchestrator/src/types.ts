@@ -23,6 +23,7 @@ export interface OllamaMessage {
 export interface OllamaResponse {
   content: string;
   tool_calls: OllamaToolCall[];
+  sentMessages: OllamaMessage[];
 }
 
 export interface TraceStep {
@@ -33,6 +34,7 @@ export interface TraceStep {
   tool_called: string | null;
   tool_result: unknown;
   latency_ms: number;
+  annotations?: string[];
 }
 
 export interface RunOptions {

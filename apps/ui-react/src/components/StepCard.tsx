@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Plug, Loader, CircleCheck, BrainCircuit } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plug, Loader, CircleCheck, BrainCircuit, TriangleAlert } from 'lucide-react';
 import type { TraceStep } from '../types';
 
 interface StepCardProps {
@@ -10,6 +10,20 @@ interface StepCardProps {
 interface McpTool {
   name: string;
   description: string;
+}
+
+function Annotations({ annotations }: Readonly<{ annotations?: string[] }>) {
+  if (!annotations?.length) return null;
+  return (
+    <div className="flex flex-col gap-1">
+      {annotations.map((a) => (
+        <div key={a} className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-400/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          <TriangleAlert size={12} className="mt-0.5 shrink-0" />
+          <span>{a}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function McpInitCard({ step }: Readonly<{ step: TraceStep }>) {
@@ -74,6 +88,7 @@ function McpCallCard({ step, running }: Readonly<StepCardProps>) {
             </pre>
           </div>
         )}
+        <Annotations annotations={step.annotations} />
       </div>
     </div>
   );
@@ -125,6 +140,7 @@ export function StepCard({ step, running }: Readonly<StepCardProps>) {
             {step.llm_output}
           </pre>
         </div>
+        <Annotations annotations={step.annotations} />
       </div>
     </div>
   );

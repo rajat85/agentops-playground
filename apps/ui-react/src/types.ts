@@ -6,6 +6,7 @@ export interface TraceStep {
   tool_called: string | null;
   tool_result: string | null;
   latency_ms: number;
+  annotations?: string[];
 }
 
 export interface RunResult {

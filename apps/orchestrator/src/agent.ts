@@ -20,16 +20,47 @@ export function mcpToolToOllama(tool: Tool): OllamaTool {
   };
 }
 
+function applyContextTruncation(messages: OllamaMessage[]): { messages: OllamaMessage[]; annotation: string | null } {
+  const dropped = messages.length - 2;
+  if (dropped <= 0) return { messages, annotation: null };
+  const droppedRoles = messages.slice(0, dropped).map((m) => `[${m.role}]`).join(', ');
+  return {
+    messages: messages.slice(-2),
+    annotation: `⚠️ context_truncation: dropped ${dropped} message${dropped > 1 ? 's' : ''} (${droppedRoles}) — only the last 2 were sent to the model`,
+  };
+}
+
+function buildLLMAnnotations(failureModes: string[], messages: OllamaMessage[]): { messagesToSend: OllamaMessage[]; annotations: string[] } {
+  let messagesToSend = messages;
+  const annotations: string[] = [];
+
+  if (failureModes.includes('context_truncation')) {
+    const { messages: truncated, annotation } = applyContextTruncation(messages);
+    messagesToSend = truncated;
+    if (annotation) annotations.push(annotation);
+  }
+
+  if (failureModes.includes('agent_loop')) {
+    annotations.push('⚠️ agent_loop: temperature raised to 1.5 — model output is deliberately erratic; early-exit on no tool call is suppressed');
+  }
+
+  return { messagesToSend, annotations };
+}
+
+function buildRetrievalNoiseAnnotation(toolResult: unknown): string | null {
+  const docs = (toolResult as { documents?: string[] }).documents ?? [];
+  const noiseMarkers = ['French Revolution', 'Photosynthesis', 'speed of light'];
+  const noiseDocs = docs.filter((d) => noiseMarkers.some((m) => d.includes(m)));
+  if (noiseDocs.length === 0) return null;
+  return `⚠️ retrieval_noise: ${noiseDocs.length} noise document${noiseDocs.length > 1 ? 's' : ''} injected into results — "${noiseDocs.join('" · "')}"`;
+}
+
 export async function callLLM(
   messages: OllamaMessage[],
   tools: OllamaTool[],
   failureModes: string[]
 ): Promise<OllamaResponse> {
-  let messagesToSend = messages;
-
-  if (failureModes.includes('context_truncation')) {
-    messagesToSend = messages.slice(-2);
-  }
+  const { messagesToSend, annotations } = buildLLMAnnotations(failureModes, messages);
 
   const response = await fetch(OLLAMA_URL, {
     method: 'POST',
@@ -51,6 +82,8 @@ export async function callLLM(
   return {
     content: data.message.content ?? '',
     tool_calls: data.message.tool_calls ?? [],
+    sentMessages: messagesToSend,
+    annotations,
   };
 }
 
@@ -63,12 +96,64 @@ export function runAgentBackground(task: string, failureModes: string[]): { run_
   return { run_id: runId };
 }
 
+function buildFinalResult(runId: string, task: string, failureModes: string[], steps: TraceStep[], finalAnswer: string): RunResult {
+  return {
+    run_id: runId,
+    task,
+    failure_modes: failureModes,
+    steps,
+    current_status: 'Done',
+    running: false,
+    final_answer: finalAnswer,
+    completed_at: new Date().toISOString(),
+  };
+}
+
+async function executeMcpCall(
+  runId: string,
+  steps: TraceStep[],
+  messages: OllamaMessage[],
+  llmResponse: OllamaResponse,
+  toolCall: OllamaToolCall,
+  mcpClient: MCPClient,
+  failureModes: string[],
+): Promise<void> {
+  const mcpStep: TraceStep = {
+    step: steps.length,
+    kind: 'mcp_call',
+    llm_input: '',
+    llm_output: '',
+    tool_called: toolCall.function.name,
+    tool_result: null,
+    latency_ms: 0,
+  };
+  steps.push(mcpStep);
+  appendTraceStep(runId, mcpStep);
+
+  setStatus(runId, `Calling MCP tool ${toolCall.function.name}…`);
+  const t1 = Date.now();
+  const toolResult = await mcpClient.callTool(toolCall.function.name, toolCall.function.arguments);
+  mcpStep.tool_result = toolResult;
+  mcpStep.latency_ms = Date.now() - t1;
+
+  if (failureModes.includes('retrieval_noise') && toolCall.function.name === 'retrieve_docs') {
+    const annotation = buildRetrievalNoiseAnnotation(toolResult);
+    if (annotation) mcpStep.annotations = [annotation];
+  }
+
+  updateLastTraceStep(runId, { tool_result: toolResult, latency_ms: mcpStep.latency_ms, annotations: mcpStep.annotations });
+
+  messages.push(
+    { role: 'assistant', content: llmResponse.content, tool_calls: llmResponse.tool_calls },
+    { role: 'tool', content: JSON.stringify(toolResult) },
+  );
+}
+
 export async function runAgent(task: string, options: RunOptions, existingRunId?: string): Promise<RunResult> {
   const runId = existingRunId ?? generateRunId();
   if (!existingRunId) initTrace(runId, task, options.failureModes);
 
   const mcpClient = new MCPClient();
-
   const mcpTools = await mcpClient.listTools();
   const ollamaTools = mcpTools.map(mcpToolToOllama);
 
@@ -79,16 +164,11 @@ export async function runAgent(task: string, options: RunOptions, existingRunId?
     await mcpClient.callTool('inject_failure', { type: 'retrieval_noise' });
   }
 
-  const mcpInitStep: TraceStep = {
-    step: -1,
-    kind: 'mcp_init',
-    llm_input: '',
-    llm_output: '',
-    tool_called: null,
+  appendTraceStep(runId, {
+    step: -1, kind: 'mcp_init', llm_input: '', llm_output: '', tool_called: null,
     tool_result: mcpTools.map((t) => ({ name: t.name, description: t.description ?? '' })),
     latency_ms: 0,
-  };
-  appendTraceStep(runId, mcpInitStep);
+  });
 
   const messages: OllamaMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -100,63 +180,26 @@ export async function runAgent(task: string, options: RunOptions, existingRunId?
     for (let step = 0; step < MAX_STEPS; step++) {
       setStatus(runId, `Step ${step + 1} — thinking…`);
       const t0 = Date.now();
-      const llmInput = messages.map((m) => `[${m.role}]: ${m.content}`).join('\n');
       const llmResponse = await callLLM(messages, ollamaTools, options.failureModes);
-      const latency_ms = Date.now() - t0;
-
       const toolCall = llmResponse.tool_calls[0] ?? null;
 
-      // Step A: LLM decision
       const llmStep: TraceStep = {
-        step: steps.length,
-        kind: 'agent',
-        llm_input: llmInput,
+        step: steps.length, kind: 'agent',
+        llm_input: llmResponse.sentMessages.map((m) => `[${m.role}]: ${m.content}`).join('\n'),
         llm_output: llmResponse.content || (toolCall ? JSON.stringify(toolCall) : ''),
-        tool_called: null,
-        tool_result: null,
-        latency_ms,
+        tool_called: null, tool_result: null,
+        latency_ms: Date.now() - t0,
+        annotations: llmResponse.annotations.length > 0 ? llmResponse.annotations : undefined,
       };
       steps.push(llmStep);
       appendTraceStep(runId, llmStep);
 
       if (toolCall) {
-        // Step B: MCP invocation — appended before the call so UI shows it immediately
-        const mcpStep: TraceStep = {
-          step: steps.length,
-          kind: 'mcp_call',
-          llm_input: '',
-          llm_output: '',
-          tool_called: toolCall.function.name,
-          tool_result: null,
-          latency_ms: 0,
-        };
-        steps.push(mcpStep);
-        appendTraceStep(runId, mcpStep);
-
-        setStatus(runId, `Calling MCP tool ${toolCall.function.name}…`);
-        const t1 = Date.now();
-        const toolResult = await mcpClient.callTool(toolCall.function.name, toolCall.function.arguments);
-        mcpStep.tool_result = toolResult;
-        mcpStep.latency_ms = Date.now() - t1;
-        updateLastTraceStep(runId, { tool_result: toolResult, latency_ms: mcpStep.latency_ms });
-
-        messages.push(
-          { role: 'assistant', content: llmResponse.content, tool_calls: llmResponse.tool_calls },
-          { role: 'tool', content: JSON.stringify(toolResult) }
-        );
+        await executeMcpCall(runId, steps, messages, llmResponse, toolCall, mcpClient, options.failureModes);
       }
 
       if (!toolCall && !options.failureModes.includes('agent_loop')) {
-        const result: RunResult = {
-          run_id: runId,
-          task,
-          failure_modes: options.failureModes,
-          steps,
-          current_status: 'Done',
-          running: false,
-          final_answer: llmResponse.content,
-          completed_at: new Date().toISOString(),
-        };
+        const result = buildFinalResult(runId, task, options.failureModes, steps, llmResponse.content);
         logTrace(result);
         return result;
       }
@@ -165,16 +208,7 @@ export async function runAgent(task: string, options: RunOptions, existingRunId?
     await mcpClient.disconnect();
   }
 
-  const result: RunResult = {
-    run_id: runId,
-    task,
-    failure_modes: options.failureModes,
-    steps,
-    current_status: 'Done',
-    running: false,
-    final_answer: 'Max steps reached without a final answer.',
-    completed_at: new Date().toISOString(),
-  };
+  const result = buildFinalResult(runId, task, options.failureModes, steps, 'Max steps reached without a final answer.');
   logTrace(result);
   return result;
 }
