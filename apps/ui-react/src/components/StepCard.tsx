@@ -1,41 +1,107 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plug, Loader, CircleCheck, BrainCircuit } from 'lucide-react';
 import type { TraceStep } from '../types';
 
 interface StepCardProps {
-  step: TraceStep;
+  step: Readonly<TraceStep>;
+  running?: boolean;
 }
 
-export function StepCard({ step }: StepCardProps) {
-  const [inputOpen, setInputOpen] = useState(false);
+interface McpTool {
+  name: string;
+  description: string;
+}
 
+function McpInitCard({ step }: Readonly<{ step: TraceStep }>) {
+  const tools = step.tool_result ? (JSON.parse(step.tool_result) as McpTool[]) : [];
   return (
-    <div className="rounded-lg border border-l-4 border-l-blue-500/40 bg-card">
-      <div className="p-4 flex flex-col gap-4">
+    <div className="rounded-lg border border-l-4 border-l-emerald-500 bg-card">
+      <div className="p-4 flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <Plug size={14} className="text-emerald-500" />
+          <span className="text-sm font-semibold">MCP Tool Registration</span>
+          <span className="inline-flex items-center rounded-full bg-emerald-500/10 text-emerald-600 px-2 py-0.5 text-xs font-semibold">
+            {tools.length} tools
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          {tools.map((t) => (
+            <div key={t.name} className="flex items-start gap-2 text-xs">
+              <span className="font-mono font-semibold text-emerald-600 shrink-0">{t.name}</span>
+              <span className="text-muted-foreground">{t.description}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* Header */}
+function McpCallCard({ step, running }: Readonly<StepCardProps>) {
+  const done = !!step.tool_result;
+  return (
+    <div className="rounded-lg border border-l-4 border-l-amber-400 bg-card">
+      <div className="p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-mono font-semibold">
               Step {step.step + 1}
             </span>
-            {step.tool_called ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-secondary text-secondary-foreground px-2.5 py-0.5 text-xs font-mono font-semibold">
-                <Settings size={10} />
-                {step.tool_called}
-              </span>
+            {done ? (
+              <CircleCheck size={14} className="text-emerald-500" />
             ) : (
-              <span className="inline-flex items-center rounded-full bg-violet-600 text-white px-2.5 py-0.5 text-xs font-semibold">
-                + Reasoning
-              </span>
+              <Loader size={14} className="animate-spin text-amber-500" />
+            )}
+            <span className="text-sm font-semibold">
+              MCP Call — <span className="font-mono">{step.tool_called}</span>
+            </span>
+            {!done && running && (
+              <span className="text-xs text-amber-500">invoking…</span>
             )}
           </div>
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {step.latency_ms} ms
-          </span>
+          {done && (
+            <span className="text-xs tabular-nums text-muted-foreground">{step.latency_ms} ms</span>
+          )}
         </div>
 
-        {/* Collapsible model input */}
+        {step.tool_result && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Tool Result
+            </span>
+            <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words bg-muted/60 rounded-md p-3 max-h-40 overflow-y-auto">
+              {step.tool_result}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function StepCard({ step, running }: Readonly<StepCardProps>) {
+  const [inputOpen, setInputOpen] = useState(false);
+
+  if (step.kind === 'mcp_init') return <McpInitCard step={step} />;
+  if (step.kind === 'mcp_call') return <McpCallCard step={step} running={running} />;
+
+  return (
+    <div className="rounded-lg border border-l-4 border-l-blue-500/40 bg-card">
+      <div className="p-4 flex flex-col gap-4">
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-mono font-semibold">
+              Step {step.step + 1}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-600/10 text-violet-600 px-2.5 py-0.5 text-xs font-semibold">
+              <BrainCircuit size={10} />
+              LLM
+            </span>
+          </div>
+          <span className="text-xs tabular-nums text-muted-foreground">{step.latency_ms} ms</span>
+        </div>
+
         <div className="rounded-md border border-dashed border-muted-foreground/30">
           <button
             onClick={() => setInputOpen((o) => !o)}
@@ -51,7 +117,6 @@ export function StepCard({ step }: StepCardProps) {
           )}
         </div>
 
-        {/* Model output */}
         <div className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Model Output
@@ -60,21 +125,6 @@ export function StepCard({ step }: StepCardProps) {
             {step.llm_output}
           </pre>
         </div>
-
-        {/* Tool result */}
-        {step.tool_called && step.tool_result && (
-          <>
-            <hr className="border-border" />
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Tool Result
-              </span>
-              <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words bg-muted/60 rounded-md p-3 max-h-40 overflow-y-auto">
-                {step.tool_result}
-              </pre>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );

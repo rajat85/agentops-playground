@@ -1,5 +1,6 @@
 export interface TraceStep {
   step: number;
+  kind?: 'mcp_init' | 'agent' | 'mcp_call';
   llm_input: string;
   llm_output: string;
   tool_called: string | null;

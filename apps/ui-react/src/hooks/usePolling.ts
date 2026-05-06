@@ -1,6 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchTrace } from '../api';
 import type { TraceStep } from '../types';
+
+function mergeSteps(prev: TraceStep[], server: TraceStep[]): TraceStep[] {
+  return server.map((s, i) => (prev[i]?.tool_result === s.tool_result ? (prev[i] ?? s) : s));
+}
 
 interface PollingState {
   steps: TraceStep[];
@@ -16,7 +20,6 @@ export function usePolling(runId: string): PollingState {
   const [finalAnswer, setFinalAnswer] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
-  const knownCountRef = useRef(0);
 
   useEffect(() => {
     if (!runId) return;
@@ -26,17 +29,13 @@ export function usePolling(runId: string): PollingState {
     setFinalAnswer('');
     setRunning(true);
     setError('');
-    knownCountRef.current = 0;
 
     const id = setInterval(async () => {
       try {
         const trace = await fetchTrace(runId);
 
-        const newSteps = trace.steps.slice(knownCountRef.current);
-        if (newSteps.length > 0) {
-          knownCountRef.current = trace.steps.length;
-          setSteps((prev) => [...prev, ...newSteps]);
-        }
+        // Always sync full step list so tool_result updates on existing steps are picked up
+        setSteps((prev) => mergeSteps(prev, trace.steps));
 
         setCurrentStatus(trace.current_status);
         setFinalAnswer(trace.final_answer ?? '');
@@ -48,7 +47,7 @@ export function usePolling(runId: string): PollingState {
         setRunning(false);
         clearInterval(id);
       }
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(id);
   }, [runId]);

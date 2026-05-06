@@ -38,8 +38,8 @@ export function TraceViewer({ steps, finalAnswer, running, currentStatus, error 
             </span>
           </div>
 
-          {steps.map((step) => (
-            <StepCard key={step.step} step={step} />
+          {steps.map((step, i) => (
+            <StepCard key={step.step} step={step} running={running && i === steps.length - 1} />
           ))}
         </>
       )}
