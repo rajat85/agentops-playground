@@ -6,6 +6,7 @@ Serves at http://127.0.0.1:5175 via:
 
 from prefab_ui import PrefabApp
 from prefab_ui.components import (
+    Alert, AlertDescription,
     Card, CardContent, CardDescription, CardHeader, CardTitle,
     Checkbox, Column, Div, Embed,
     Icon, If, Row, Text, Muted, Textarea, Button,
@@ -67,6 +68,18 @@ with PrefabApp(
                                     Checkbox(name="retrieval_noise",    label="Retrieval Noise")
                                     Checkbox(name="context_truncation", label="Context Truncation")
                                     Checkbox(name="agent_loop",         label="Agent Loop")
+
+                                with If("retrieval_noise"):
+                                    with Alert(variant="warning", icon="triangle-alert"):
+                                        AlertDescription("3 unrelated documents (French Revolution, Photosynthesis, speed of light) will be appended to every retrieve_docs result, polluting the LLM's context with irrelevant evidence.")
+
+                                with If("context_truncation"):
+                                    with Alert(variant="warning", icon="triangle-alert"):
+                                        AlertDescription("The message history sent to the LLM is truncated to the last 2 messages before each call. The system prompt and original question are dropped — the model reasons without knowing what it was asked.")
+
+                                with If("agent_loop"):
+                                    with Alert(variant="warning", icon="triangle-alert"):
+                                        AlertDescription("Ollama temperature is raised to 1.5, making the model erratic. The early-exit condition is also suppressed — the agent keeps calling tools until it hits MAX_STEPS (10) and returns \"Max steps reached\".")
 
                         Button(
                             "Run Agent",
