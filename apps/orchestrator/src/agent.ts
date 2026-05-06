@@ -72,6 +72,13 @@ export async function runAgent(task: string, options: RunOptions, existingRunId?
   const mcpTools = await mcpClient.listTools();
   const ollamaTools = mcpTools.map(mcpToolToOllama);
 
+  // retrieval_noise lives in MCP server in-memory state (failure-flags.ts).
+  // Each run spawns a fresh MCP process, so we must prime it via inject_failure
+  // before the agent loop starts — the orchestrator flag alone has no effect.
+  if (options.failureModes.includes('retrieval_noise')) {
+    await mcpClient.callTool('inject_failure', { type: 'retrieval_noise' });
+  }
+
   const mcpInitStep: TraceStep = {
     step: -1,
     kind: 'mcp_init',
