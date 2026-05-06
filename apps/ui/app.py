@@ -1,4 +1,4 @@
-"""AgentOps Playground — Prefab UI dashboard.
+"""AgentOps Playground — config panel.
 
 Serves at http://127.0.0.1:5175 via:
     uv run prefab serve app.py
@@ -6,165 +6,94 @@ Serves at http://127.0.0.1:5175 via:
 
 from prefab_ui import PrefabApp
 from prefab_ui.components import (
-    Alert,
-    AlertDescription,
-    AlertTitle,
-    Badge,
-    Button,
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Checkbox,
-    Column,
-    ForEach,
-    Heading,
-    If,
-    Else,
-    Row,
-    Separator,
-    Text,
-    Textarea,
+    Card, CardContent, CardDescription, CardHeader, CardTitle,
+    Checkbox, Column, Div, Embed,
+    Icon, If, Row, Text, Muted, Textarea, Button,
 )
 from prefab_ui.actions import Fetch, SetState, ShowToast
-from prefab_ui.rx import RESULT, Rx
+from prefab_ui.rx import RESULT
 
-BRIDGE_URL = "http://localhost:8000"
+ORCHESTRATOR_URL = "http://localhost:3000"
+TRACE_VIEWER_URL = "http://localhost:5176"
 
 with PrefabApp(
     title="AgentOps Playground",
     state={
-        "task_input": "What are the main features of AgentOps?",
+        "task_input": "What is RAG and how does it reduce hallucination?",
         "retrieval_noise": False,
         "context_truncation": False,
         "agent_loop": False,
-        "result": None,
-        "loading": False,
-        "error_msg": "",
+        "run_id": "",
     },
-    connect_domains=[BRIDGE_URL],
+    connect_domains=[ORCHESTRATOR_URL],
 ) as app:
-    with Column(gap=6):
-        # ── Header ──────────────────────────────────────────────────────
-        Heading("AgentOps Playground", level=1)
-        Text("Submit a task to run through the agent pipeline and inspect the trace.")
+    with Column(gap=0, css_class="min-h-screen bg-muted/30"):
 
-        Separator()
+        # ── Top nav ──────────────────────────────────────────────────────
+        with Div(css_class="border-b bg-background px-6 py-3"):
+            with Row(justify="between", css_class="items-center max-w-5xl mx-auto"):
+                with Row(gap=2, css_class="items-center"):
+                    Icon("bot", size="default")
+                    Text("AgentOps Playground", bold=True)
+                Muted("AI diagnostic platform")
 
-        # ── Task Input Card ──────────────────────────────────────────────
-        with Card():
-            with CardHeader():
-                CardTitle("Task")
-            with CardContent():
-                with Column(gap=4):
-                    Textarea(
-                        name="task_input",
-                        placeholder="Enter your task here...",
-                        rows=5,
-                        value="{{ task_input }}",
-                    )
+        # ── Page body ────────────────────────────────────────────────────
+        with Column(gap=6, css_class="max-w-5xl mx-auto w-full px-6 py-8"):
 
-                    # ── Failure Mode Checkboxes ──────────────────────────
-                    Heading("Failure Modes", level=3)
-                    Text(
-                        "Enable one or more failure modes to test agent robustness.",
-                        italic=True,
-                    )
-                    with Row():
-                        Checkbox(
-                            name="retrieval_noise",
-                            label="Retrieval Noise",
-                            value="{{ retrieval_noise }}",
-                        )
-                        Checkbox(
-                            name="context_truncation",
-                            label="Context Truncation",
-                            value="{{ context_truncation }}",
-                        )
-                        Checkbox(
-                            name="agent_loop",
-                            label="Agent Loop",
-                            value="{{ agent_loop }}",
-                        )
-
-                    Separator()
-
-                    # ── Run Button ───────────────────────────────────────
-                    Button(
-                        "Run Agent",
-                        variant="default",
-                        disabled="{{ loading }}",
-                        onClick=[
-                            SetState("loading", True),
-                            SetState("result", None),
-                            SetState("error_msg", ""),
-                            Fetch.post(
-                                f"{BRIDGE_URL}/run",
-                                body={
-                                    "task": "{{ task_input }}",
-                                    "failure_modes": {
-                                        "retrieval_noise": "{{ retrieval_noise }}",
-                                        "context_truncation": "{{ context_truncation }}",
-                                        "agent_loop": "{{ agent_loop }}",
-                                    },
-                                },
-                                onSuccess=[
-                                    SetState("result", RESULT),
-                                    SetState("loading", False),
-                                ],
-                                onError=[
-                                    SetState("error_msg", "{{ $error }}"),
-                                    SetState("loading", False),
-                                    ShowToast("Request failed: {{ $error }}", variant="error"),
-                                ],
-                            ),
-                        ],
-                    )
-
-        # ── Loading indicator ────────────────────────────────────────────
-        with If("loading"):
-            with Alert(variant="default"):
-                AlertTitle("Running")
-                AlertDescription("Agent pipeline is running… please wait.")
-
-        # ── Error display ────────────────────────────────────────────────
-        with If("error_msg"):
-            with Alert(variant="destructive"):
-                AlertTitle("Error")
-                AlertDescription("{{ error_msg }}")
-
-        # ── Results ──────────────────────────────────────────────────────
-        with If("result"):
+            # ── Config panel ─────────────────────────────────────────────
             with Card():
                 with CardHeader():
-                    CardTitle("Trace")
+                    CardTitle("Configure Task")
+                    CardDescription("Enter a task and optionally inject failure modes to stress-test the agent pipeline.")
                 with CardContent():
-                    with Column(gap=4):
+                    with Column(gap=5):
 
-                        # Trace steps
-                        with ForEach("result.steps") as step:
-                            with Card():
-                                with CardContent():
-                                    with Column(gap=2):
-                                        with Row():
-                                            Badge(f"Step {step.step}")
-                                            Text(f"{step.latency_ms} ms", italic=True)
-                                        Text("LLM output:")
-                                        Text(f"{step.llm_output}")
-                                        with If(f"{step.tool_called}"):
-                                            with Row():
-                                                Badge(f"Tool: {step.tool_called}", variant="secondary")
-                                            Text("Tool result:")
-                                            Text(f"{step.tool_result}")
+                        Textarea(
+                            name="task_input",
+                            placeholder="e.g. What is RAG and how does it reduce hallucination?",
+                            rows=3,
+                            value="{{ task_input }}",
+                        )
 
-                        Separator()
+                        with Div(css_class="rounded-md border p-4 bg-muted/40"):
+                            with Column(gap=3):
+                                with Row(gap=2, css_class="items-center"):
+                                    Icon("flask-conical", size="sm")
+                                    Text("Failure Modes", bold=True)
+                                Muted("Enable faults to observe how each layer degrades output.")
+                                with Row(gap=6, css_class="pt-1"):
+                                    Checkbox(name="retrieval_noise",    label="Retrieval Noise")
+                                    Checkbox(name="context_truncation", label="Context Truncation")
+                                    Checkbox(name="agent_loop",         label="Agent Loop")
 
-                        # Final answer
-                        Heading("Final Answer", level=3)
-                        Text("{{ result.final_answer }}")
+                        Button(
+                            "Run Agent",
+                            icon="play",
+                            variant="default",
+                            size="lg",
+                            css_class="w-full",
+                            onClick=[
+                                SetState("run_id", ""),
+                                Fetch.post(
+                                    f"{ORCHESTRATOR_URL}/run/start",
+                                    body={
+                                        "task": "{{ task_input }}",
+                                        "failureModes": {
+                                            "retrieval_noise": "{{ retrieval_noise }}",
+                                            "context_truncation": "{{ context_truncation }}",
+                                            "agent_loop": "{{ agent_loop }}",
+                                        },
+                                    },
+                                    onSuccess=SetState("run_id", RESULT["run_id"]),
+                                    onError=ShowToast("Failed to start: {{ $error }}", variant="error"),
+                                ),
+                            ],
+                        )
 
-        with Else():
-            Text(
-                "No results yet. Enter a task above and click Run Agent.",
-                italic=True,
-            )
+            # ── Trace viewer (React) ─────────────────────────────────────
+            with If("run_id"):
+                Embed(
+                    url=f"{TRACE_VIEWER_URL}?run_id={{{{ run_id }}}}",
+                    width="100%",
+                    height="800px",
+                )
