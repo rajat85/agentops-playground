@@ -11,10 +11,14 @@ interface TraceViewerProps {
   error: string;
 }
 
-export function TraceViewer({ steps, finalAnswer, running, currentStatus, error }: TraceViewerProps) {
+export function TraceViewer({ steps, finalAnswer, running, currentStatus, error }: Readonly<TraceViewerProps>) {
   return (
     <div className="flex flex-col gap-4">
-      {running && <StatusPill status={currentStatus || 'Running…'} />}
+      {running && (
+        <div className="sticky top-0 z-40 bg-background pb-2 pt-1">
+          <StatusPill status={currentStatus || 'Running…'} />
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
