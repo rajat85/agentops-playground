@@ -41,5 +41,13 @@ export function retrieveDocs(query: string): { documents: string[] } {
     docs.push(...NOISE_DOCS);
   }
 
-  return { documents: docs.length > 0 ? docs : [`No documents found for query: ${query}`] };
+  if (docs.length === 0) {
+    return {
+      documents: [],
+      grounded: false,
+      instruction: 'No documents were found for this query. Answer from your own knowledge but explicitly tell the user that no relevant documents were found and your answer is based on general training knowledge, not retrieved evidence.',
+    };
+  }
+
+  return { documents: docs, grounded: true };
 }
