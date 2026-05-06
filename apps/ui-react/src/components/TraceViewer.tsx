@@ -12,22 +12,20 @@ interface TraceViewerProps {
 }
 
 export function TraceViewer({ steps, finalAnswer, running, currentStatus, error }: TraceViewerProps) {
-  if (steps.length === 0 && !running && !error) {
-    return (
-      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed bg-card py-16 text-center">
-        <Cpu size={32} className="text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Waiting for run_id…</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-4">
-      {running && currentStatus && <StatusPill status={currentStatus} />}
+      {running && <StatusPill status={currentStatus || 'Running…'} />}
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {steps.length === 0 && !running && !error && (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed bg-card py-16 text-center">
+          <Cpu size={32} className="text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Waiting for run_id…</p>
         </div>
       )}
 
