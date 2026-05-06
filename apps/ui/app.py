@@ -30,12 +30,14 @@ with PrefabApp(
     with Column(gap=0, css_class="min-h-screen bg-muted/30"):
 
         # ── Top nav ──────────────────────────────────────────────────────
-        with Div(css_class="border-b bg-background px-6 py-3"):
+        with Div(css_class="sticky top-0 z-50 border-b bg-background/90 backdrop-blur px-6 py-3"):
             with Row(justify="between", css_class="items-center max-w-5xl mx-auto"):
                 with Row(gap=2, css_class="items-center"):
                     Icon("bot", size="default")
-                    Text("AgentOps Playground", bold=True)
-                Muted("AI diagnostic platform")
+                    with Column(gap=0):
+                        Text("AgentOps Playground", bold=True)
+                        Muted("Ollama · MCP · RAG")
+                Muted("AI agent diagnostic platform")
 
         # ── Page body ────────────────────────────────────────────────────
         with Column(gap=6, css_class="max-w-5xl mx-auto w-full px-6 py-8"):
@@ -97,3 +99,9 @@ with PrefabApp(
                     width="100%",
                     height="800px",
                 )
+
+        # ── Footer ───────────────────────────────────────────────────────
+        with Div(css_class="border-t bg-background px-6 py-3 mt-auto"):
+            with Row(justify="between", css_class="items-center max-w-5xl mx-auto"):
+                Muted("AgentOps Playground — personal R&D")
+                Muted("Ollama · MCP · RAG")
