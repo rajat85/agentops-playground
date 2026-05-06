@@ -48,7 +48,7 @@ async def run_task(request: RunRequest):
                 json={"task": request.task, "failureModes": request.resolved_failure_modes()},
             )
             response.raise_for_status()
-            return response.json()
+            return _stringify_trace_steps(response.json())
         except httpx.ConnectError:
             raise HTTPException(
                 status_code=503,
@@ -59,6 +59,14 @@ async def run_task(request: RunRequest):
                 status_code=e.response.status_code,
                 detail=e.response.text,
             )
+
+
+def _stringify_trace_steps(data: dict) -> dict:
+    """Convert tool_result objects to JSON strings so the UI can render them as text."""
+    for step in data.get("steps", []):
+        if step.get("tool_result") is not None and not isinstance(step["tool_result"], str):
+            step["tool_result"] = json.dumps(step["tool_result"])
+    return data
 
 
 @app.get("/trace/{run_id}")

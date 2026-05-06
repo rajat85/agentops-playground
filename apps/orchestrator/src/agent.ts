@@ -1,5 +1,5 @@
 import type { OllamaMessage, TraceStep, RunOptions, RunResult, ToolCall } from './types.js';
-import { generateRunId, logTrace } from './trace.js';
+import { generateRunId, initTrace, appendTraceStep, setStatus, logTrace } from './trace.js';
 import { MCPClient } from './mcp-client.js';
 
 const OLLAMA_URL = 'http://localhost:11434/api/chat';
@@ -65,8 +65,19 @@ export async function callLLM(
   return data.message.content;
 }
 
-export async function runAgent(task: string, options: RunOptions): Promise<RunResult> {
+export function runAgentBackground(task: string, failureModes: string[]): { run_id: string } {
   const runId = generateRunId();
+  initTrace(runId, task, failureModes);
+  runAgent(task, { failureModes }, runId).catch((err) => {
+    console.error(`Agent run ${runId} failed:`, err);
+  });
+  return { run_id: runId };
+}
+
+export async function runAgent(task: string, options: RunOptions, existingRunId?: string): Promise<RunResult> {
+  const runId = existingRunId ?? generateRunId();
+  if (!existingRunId) initTrace(runId, task, options.failureModes);
+
   const mcpClient = new MCPClient();
   const messages: OllamaMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -76,6 +87,7 @@ export async function runAgent(task: string, options: RunOptions): Promise<RunRe
 
   try {
     for (let step = 0; step < MAX_STEPS; step++) {
+      setStatus(runId, `Step ${step + 1} — thinking…`);
       const t0 = Date.now();
       const llmInput = messages.map((m) => `[${m.role}]: ${m.content}`).join('\n');
       const llmOutput = await callLLM(messages, options.failureModes);
@@ -92,31 +104,34 @@ export async function runAgent(task: string, options: RunOptions): Promise<RunRe
         latency_ms,
       };
 
+      if (toolCall) {
+        setStatus(runId, `Step ${step + 1} — calling ${toolCall.tool}…`);
+        const toolResult = await mcpClient.callTool(toolCall.tool, toolCall.args);
+        traceStep.tool_result = toolResult;
+        messages.push(
+          { role: 'assistant', content: llmOutput },
+          { role: 'user', content: `Tool result for ${toolCall.tool}:\n${JSON.stringify(toolResult)}` }
+        );
+      }
+
+      steps.push(traceStep);
+      appendTraceStep(runId, traceStep);
+
       // agent_loop failure mode: skip the exit condition so the loop runs to MAX_STEPS
       if (!toolCall && !options.failureModes.includes('agent_loop')) {
-        steps.push(traceStep);
         const result: RunResult = {
           run_id: runId,
           task,
           failure_modes: options.failureModes,
           steps,
+          current_status: 'Done',
+          running: false,
           final_answer: llmOutput,
           completed_at: new Date().toISOString(),
         };
         logTrace(result);
         return result;
       }
-
-      if (toolCall) {
-        const toolResult = await mcpClient.callTool(toolCall.tool, toolCall.args);
-        traceStep.tool_result = toolResult;
-        messages.push(
-          { role: 'assistant', content: llmOutput },
-          { role: 'tool', content: JSON.stringify(toolResult) }
-        );
-      }
-
-      steps.push(traceStep);
     }
   } finally {
     await mcpClient.disconnect();
@@ -127,6 +142,8 @@ export async function runAgent(task: string, options: RunOptions): Promise<RunRe
     task,
     failure_modes: options.failureModes,
     steps,
+    current_status: 'Done',
+    running: false,
     final_answer: 'Max steps reached without a final answer.',
     completed_at: new Date().toISOString(),
   };

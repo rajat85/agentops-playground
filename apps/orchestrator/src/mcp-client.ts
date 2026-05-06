@@ -2,8 +2,10 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const MCP_SERVER_PATH = path.resolve(process.cwd(), 'apps/mcp-server/src/index.ts');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const MCP_SERVER_PATH = path.resolve(__dirname, '../../mcp-server/src/index.ts');
 
 export class MCPClient {
   private readonly client: Client;

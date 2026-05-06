@@ -1,5 +1,5 @@
 export interface OllamaMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
@@ -21,6 +21,8 @@ export interface RunResult {
   task: string;
   failure_modes: string[];
   steps: TraceStep[];
+  current_status: string;
+  running: boolean;
   final_answer: string;
   completed_at: string;
 }
