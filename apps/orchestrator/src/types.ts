@@ -1,10 +1,33 @@
+export interface OllamaToolCall {
+  function: {
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
+export interface OllamaTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
 export interface OllamaMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  tool_calls?: OllamaToolCall[];
+}
+
+export interface OllamaResponse {
+  content: string;
+  tool_calls: OllamaToolCall[];
 }
 
 export interface TraceStep {
   step: number;
+  kind?: 'mcp_init' | 'agent' | 'mcp_call';
   llm_input: string;
   llm_output: string;
   tool_called: string | null;

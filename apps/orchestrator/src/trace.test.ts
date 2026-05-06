@@ -10,6 +10,8 @@ const sampleResult: RunResult = {
   task: 'test task',
   failure_modes: [],
   steps: [],
+  current_status: 'Done',
+  running: false,
   final_answer: 'done',
   completed_at: new Date().toISOString(),
 };

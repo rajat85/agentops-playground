@@ -32,6 +32,14 @@ export function appendTraceStep(runId: string, step: TraceStep): void {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
+export function updateLastTraceStep(runId: string, patch: Partial<TraceStep>): void {
+  const filePath = path.join(TRACES_DIR, `${runId}.json`);
+  const data = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as RunResult;
+  const last = data.steps.at(-1);
+  if (last) Object.assign(last, patch);
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
 export function setStatus(runId: string, status: string): void {
   const filePath = path.join(TRACES_DIR, `${runId}.json`);
   const data = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as RunResult;

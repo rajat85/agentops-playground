@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,6 +27,12 @@ export class MCPClient {
     });
     await this.client.connect(transport);
     this.connected = true;
+  }
+
+  async listTools(): Promise<Tool[]> {
+    await this.connect();
+    const result = await this.client.listTools();
+    return result.tools;
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
